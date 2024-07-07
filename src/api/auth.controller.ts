@@ -1,26 +1,16 @@
 import bcrypt from 'bcrypt';
 import { RequestHandler } from 'express';
-import { userRepository } from '../entity/user.repository.js';
+import { usersRepository } from '../entity/users.repository.js';
 import { mailer } from '../utils/mailer.js';
+import { userService } from '../services/user.service.js';
+import { jwt } from '../utils/jwt.js';
 
-function validateEmail(email: string) {
-  const emailPattern = /^[\w.+-]+@([\w-]+\.){1,3}[\w-]{2,}$/;
-
-  if (!email) return 'Email is required';
-  if (!emailPattern.test(email)) return 'Email is not valid';
-}
-
-function validatePassword(password: string) {
-  if (!password) return 'Password is required';
-  if (password.length < 6) return 'At least 6 characters';
-}
-
-export const register: RequestHandler = async (req, res) => {
+const register: RequestHandler = async (req, res) => {
   const { email, password } = req.body;
 
   const errors = {
-    email: validateEmail(email),
-    password: validatePassword(password),
+    email: userService.validateEmail(email),
+    password: userService.validatePassword(password),
   };
 
   if (Object.values(errors).some(error => error)) {
@@ -30,7 +20,7 @@ export const register: RequestHandler = async (req, res) => {
     });
   }
 
-  const existingUser = await userRepository.getByEmail(email);
+  const existingUser = await usersRepository.getByEmail(email);
 
   if (existingUser) {
     return res.status(400).json({
@@ -41,7 +31,7 @@ export const register: RequestHandler = async (req, res) => {
 
   const activationToken = bcrypt.genSaltSync(1);
   const hashedPassword = await bcrypt.hash(password, 10);
-  const user = await userRepository.create(
+  const user = await usersRepository.create(
     email,
     hashedPassword,
     activationToken,
@@ -49,23 +39,49 @@ export const register: RequestHandler = async (req, res) => {
 
   await mailer.sendActivationLink(email, activationToken);
 
-  res.status(201).json({ user });
+  res.status(201).json({
+    user: userService.normalize(user),
+  });
 };
 
-export const activate: RequestHandler = async (req, res) => {
+const activate: RequestHandler = async (req, res) => {
   const { email, token } = req.params;
-  const user = await userRepository.getByEmail(email);
+  const user = await usersRepository.getByEmail(email);
 
   if (!user || user.activationToken !== token) {
     return res.status(404);
   }
 
-  await userRepository.activate(email);
+  await usersRepository.activate(email);
 
-  res.json({ message: 'Account activated' });
+  const normalizedUser = userService.normalize(user);
+
+  res.status(201).json({
+    user: normalizedUser,
+    accessToken: jwt.generateAccessToken(normalizedUser),
+  });
+};
+
+const login: RequestHandler = async (req, res) => {
+  const { email, password } = req.body;
+
+  const user = await usersRepository.getByEmail(email);
+  const isPasswordValid = await bcrypt.compare(password, user?.password || '');
+
+  if (!user || !isPasswordValid) {
+    return res.status(401).json({ message: 'Invalid credentials' });
+  }
+
+  const normalizedUser = userService.normalize(user);
+
+  res.status(201).json({
+    user: normalizedUser,
+    accessToken: jwt.generateAccessToken(normalizedUser),
+  });
 };
 
 export const authController = {
+  login,
   register,
   activate,
 };

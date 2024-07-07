@@ -3,6 +3,7 @@ import 'express-async-errors';
 import cors from 'cors';
 import { todosRouter } from './api/todos.router.js';
 import { authRouter } from './api/auth.router.js';
+import { usersRouter } from './api/users.router.js';
 
 export function createApp() {
   const app = express();
@@ -16,6 +17,7 @@ export function createApp() {
   );
   app.use('/auth', authRouter);
   app.use('/todos', todosRouter);
+  app.use('/users', usersRouter);
 
   return app;
 }
