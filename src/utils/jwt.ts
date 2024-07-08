@@ -1,15 +1,28 @@
 import jsonwebtoken from 'jsonwebtoken';
 import { NormalizedUser } from '../services/user.service.js';
 
-const SECRET = process.env.JWT_ACCESS_SECRET as string;
+const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET as string;
+const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET as string;
 
 function generateAccessToken(user: NormalizedUser) {
-  return jsonwebtoken.sign(user, SECRET, { expiresIn: '30m' });
+  return jsonwebtoken.sign(user, ACCESS_SECRET, { expiresIn: '10s' });
+}
+
+function generateRefreshToken(user: NormalizedUser) {
+  return jsonwebtoken.sign(user, REFRESH_SECRET, { expiresIn: '30s' });
 }
 
 function validateAccessToken(token: string) {
   try {
-    return jsonwebtoken.verify(token, SECRET);
+    return jsonwebtoken.verify(token, ACCESS_SECRET);
+  } catch (error) {
+    return null;
+  }
+}
+
+function validateRefreshToken(token: string) {
+  try {
+    return jsonwebtoken.verify(token, REFRESH_SECRET);
   } catch (error) {
     return null;
   }
@@ -17,5 +30,7 @@ function validateAccessToken(token: string) {
 
 export const jwt = {
   generateAccessToken,
+  generateRefreshToken,
   validateAccessToken,
+  validateRefreshToken,
 };

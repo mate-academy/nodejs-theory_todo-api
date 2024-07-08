@@ -17,11 +17,22 @@ model Todo {
 }
 
 model User {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id              String   @id @default(dbgenerated("gen_random_uuid()"))
   email           String   @unique
   password        String
   activationToken String?  @map("activation_token")
   createdAt       DateTime @default(now()) @map("created_at")
+  token           Token?
 
   @@map("users")
+}
+
+model Token {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String   @map("user_id") @unique
+  token     String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("tokens")
 }
